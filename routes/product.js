@@ -27,14 +27,12 @@ router.put("/:id", verifyToken, async (req, res) => {
         },
         $push: {
           prices:{
-            $each: [req.body],
-            $position: -1
+            $each: [ req.body ]
           },
         },
-      },
-      { new: true }
+      }
     )
-  .then((item) => res.status(200).json(`Price of ${item.title} updated to ${item.price}...`))
+  .then((item) => res.status(200).json(`Price of ${item.title} updated to ${price}...`))
   .catch((err) => res.status(500).json(err));
 });
 
@@ -45,16 +43,23 @@ router.delete("/:id", verifyTokenAndAdmin, async (req, res) => {
     .catch((err) => res.status(500).json(err));
 });
 
-//GET PRODUCT
+//GET PRODUCT BY ID
 router.get("/find/:id", verifyToken, async (req, res) => {
-  Product.findById(req.params.id) 
+  const slice = req.query.all
+              ? {}
+              : { prices: { $slice: -3 } };
+
+  Product.findById(req.params.id, slice) 
     .then((item) => res.status(200).json(item))
     .catch((err) => res.status(500).json(err));
 });
 
-//GET PRODUCT
+//GET PRODUCT BY CODE
 router.get("/code/:code", async (req, res) => {
-  Product.findOne({ code: req.params.code })
+  const slice = req.query.all
+              ? {}
+              : { prices: { $slice: -3 } };
+  Product.findOne({ code: req.params.code }, slice)
     .then((item) => res.status(200).json(item))
     .catch((err) => res.status(500).json(err));
 });
@@ -63,25 +68,22 @@ router.get("/code/:code", async (req, res) => {
 router.get("/", verifyToken, async (req, res) => {
   const { new: qNew, category, search } = req.query;
   // console.log(req.query);
-  if (qNew) {
-    Product.find().sort({ createdAt: -1 }).limit(1)
-      .then((data) => res.status(200).json(data))
-      .catch((err) => res.status(500).json(err))
-  } else if (category) {
-    Product.find({ category: category })
-      .then((data) => res.status(200).json(data))
-      .catch((err) => res.status(500).json(err))
-  } else if (search) {
-    Product.find({ title: { $regex: search, $options: 'i' } })
-      .select({_id: 1, code: 1, title: 1, size: 1, category: 1 })
-      .then((data) => res.status(200).json(data))
-      .catch((err) => res.status(500).json(err));
-  } else {
-    Product.find()
-      .select({_id: 1, code: 1, title: 1, size: 1, category: 1 })
-      .then((data) => res.status(200).json(data))
-      .catch((err) => res.status(500).json(err))
-  }
+
+  // query -> params
+  const where = qNew ? {}
+              : category ? { category: category } 
+              : search ? { title: { $regex: search, $options: 'i' } }
+              : {};
+  const fields = {_id: 1, code: 1, title: 1, price: 1, size: 1, category: 1 };
+  const sort = { createdAt: -1 };
+  const limit = qNew ?  1 : 0;
+
+  // query -> return
+  Product.find(where, fields)
+    .sort(sort)
+    .limit(limit)
+    .then((data) => res.status(200).json(data))
+    .catch((err) => res.status(500).json(err))
 });
 
 module.exports = router;
